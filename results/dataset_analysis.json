@@ -1,0 +1,50 @@
+{
+  "root": "/home/ubuntu/TB_Detection/raw",
+  "total_files": 1420,
+  "classes": {
+    "Tuberculosis": {
+      "count": 700,
+      "formats": {
+        ".png": 700
+      },
+      "dimensions": {
+        "512x512": 700
+      },
+      "modes": {
+        "RGB": 392,
+        "L": 308
+      }
+    },
+    "Normal": {
+      "count": 720,
+      "formats": {
+        ".png": 720
+      },
+      "dimensions": {
+        "512x512": 720
+      },
+      "modes": {
+        "RGB": 720
+      }
+    }
+  },
+  "corrupted": [],
+  "duplicates": [
+    [
+      "Tuberculosis/Tuberculosis-243.png",
+      "Tuberculosis/Tuberculosis-244.png"
+    ],
+    [
+      "Tuberculosis/Tuberculosis-346.png",
+      "Tuberculosis/Tuberculosis-348.png"
+    ],
+    [
+      "Tuberculosis/Tuberculosis-509.png",
+      "Tuberculosis/Tuberculosis-510.png"
+    ]
+  ],
+  "class_imbalance": {
+    "Tuberculosis": 700,
+    "Normal": 720
+  }
+}
