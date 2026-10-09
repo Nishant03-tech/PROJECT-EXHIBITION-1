@@ -172,15 +172,73 @@ if selected_path is not None:
     raw_bgr = cv2.imread(str(selected_path))
     raw_rgb = cv2.cvtColor(raw_bgr, cv2.COLOR_BGR2RGB)
 
-    # Validation check
+    # --- STRICT CHEST X-RAY VERIFICATION (REJECTS NON-CHEST IMAGES) ---
+    h, w, _ = raw_rgb.shape
+
+    # 1. Aspect Ratio: Chest radiographs are close to square (0.60 to 1.65)
+    aspect = w / float(h)
+    if aspect < 0.60 or aspect > 1.65:
+        st.error(f"❌ Input Rejected: Unnatural aspect ratio ({aspect:.2f}). Chest radiographs are typically portrait or near square.")
+        st.stop()
+
+    # 2. Color Diversity Check (Detects photos, UI elements, desktop screenshots)
+    hsv = cv2.cvtColor(raw_rgb, cv2.COLOR_RGB2HSV)
+    sat = hsv[:, :, 1]
+    val = hsv[:, :, 2]
+    colored_mask = (sat > 25) & (val > 25) & (val < 235)
+    if np.sum(colored_mask) > (0.03 * h * w):
+        hue_std = np.std(hsv[:, :, 0][colored_mask])
+        if hue_std > 22.0:
+            st.error("❌ Input Rejected: Multicolored elements detected (icons, desktop, or color photo). This is not a chest X-ray.")
+            st.warning("Please upload a medical chest radiograph only.")
+            st.stop()
+
+    # 3. Flat Document / Window Check (e.g. Notepad, browser, extreme voids)
     gray = cv2.cvtColor(raw_rgb, cv2.COLOR_RGB2GRAY)
     contrast = float(gray.std())
-    r, g, b = raw_rgb[:, :, 0], raw_rgb[:, :, 1], raw_rgb[:, :, 2]
-    color_diff = float(np.mean(np.abs(r.astype(float) - g.astype(float))) +
-                        np.mean(np.abs(g.astype(float) - b.astype(float))))
+    flat_white = float(np.mean(gray > 248))
+    flat_black = float(np.mean(gray < 5))
 
-    if color_diff > 28.0 or contrast < 18.0:
-        st.error("❌ Input Rejected: This image does not meet thoracic radiograph contrast or spectrum criteria.")
+    if contrast < 16.0:
+        st.error("❌ Input Rejected: Image contrast is too low/flat for radiologic diagnosis.")
+        st.stop()
+
+    if flat_white > 0.22:
+        st.error("❌ Input Rejected: Synthetic white block detected (document/window/Notepad), NOT a radiograph.")
+        st.stop()
+
+    if flat_black > 0.65:
+        st.error("❌ Input Rejected: Excessive empty black void detected (extremity/hand/bone scan or non-chest image).")
+        st.stop()
+
+    # 4. Anatomical Thoracic Check: Verify Bilateral Lung Air Cavities
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
+    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    margin_y, margin_x = int(0.06 * h), int(0.06 * w)
+    inner_mask = np.zeros_like(thresh)
+    inner_mask[margin_y:h - margin_y, margin_x:w - margin_x] = 255
+    thresh = cv2.bitwise_and(thresh, inner_mask)
+
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh, connectivity=8)
+    total_pixels = h * w
+    valid_lung_cavities = 0
+    left_lobe, right_lobe = False, False
+
+    for idx in range(1, num_labels):
+        area = stats[idx, cv2.CC_STAT_AREA]
+        if 0.035 * total_pixels <= area <= 0.42 * total_pixels:
+            cx, cy = centroids[idx]
+            if 0.12 * h <= cy <= 0.88 * h:
+                valid_lung_cavities += 1
+                if cx < 0.52 * w: left_lobe = True
+                if cx > 0.48 * w: right_lobe = True
+
+    if not (left_lobe or right_lobe) or valid_lung_cavities < 1:
+        st.error("❌ Input Rejected: No anatomical lung fields detected. This image appears to be a non-chest image (e.g. skull, hand, limb X-ray, or non-medical graphic).")
+        st.warning("The system requires a posteroanterior (PA) chest radiograph with visible thoracic lung fields.")
         st.stop()
 
     with st.spinner("Analyzing radiograph with DenseNet121 + CBAM..."):
