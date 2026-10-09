@@ -139,9 +139,9 @@ def validate_chest_radiograph(raw_rgb: np.ndarray) -> tuple[bool, str]:
     # 1. Aspect Ratio: Chest radiographs are close to square (0.60 to 1.65)
     aspect = w / float(h)
     if aspect < 0.60 or aspect > 1.65:
-        return False, f"Unnatural aspect ratio ({aspect:.2f}). Chest radiographs are typically portrait or near square."
+        return False, "❌ Input Rejected: Unnatural aspect ratio. Chest radiographs are typically portrait or near square."
 
-    # 2. Color Diversity Check (Detects photos, UI icons, desktop screenshots)
+    # 2. Screenshots, Desktop Wallpapers & Regular Photos
     hsv = cv2.cvtColor(raw_rgb, cv2.COLOR_RGB2HSV)
     sat = hsv[:, :, 1]
     val = hsv[:, :, 2]
@@ -149,24 +149,24 @@ def validate_chest_radiograph(raw_rgb: np.ndarray) -> tuple[bool, str]:
     if np.sum(colored_mask) > (0.03 * h * w):
         hue_std = np.std(hsv[:, :, 0][colored_mask])
         if hue_std > 22.0:
-            return False, "Multicolored elements detected (UI icons, desktop, or color photo). This is NOT a chest X-ray."
+            return False, "❌ Input Rejected: Multicolored elements detected (icons, desktop, or color photo). This is not a chest X-ray."
 
-    # 3. Flat Document / Window Check (e.g. Notepad, browser, extreme voids)
+    # 3. Documents, Invoices, Receipts & Notepad Windows
     gray = cv2.cvtColor(raw_rgb, cv2.COLOR_RGB2GRAY)
     contrast = float(gray.std())
     flat_white = float(np.mean(gray > 248))
     flat_black = float(np.mean(gray < 5))
 
     if contrast < 16.0:
-        return False, "Image contrast is too flat/low for radiologic diagnosis."
+        return False, "❌ Input Rejected: Image contrast is too low/flat for radiologic diagnosis."
 
     if flat_white > 0.22:
-        return False, "Large synthetic white block detected (document/window/Notepad), NOT an X-ray."
+        return False, "❌ Input Rejected: Synthetic white block detected (document/window/Notepad), NOT a radiograph."
 
     if flat_black > 0.65:
-        return False, "Excessive empty black void detected (extremity/hand/bone scan or non-chest image)."
+        return False, "❌ Input Rejected: Excessive empty black void detected (>65% void). This image appears to be an extremity/limb scan or non-chest image."
 
-    # 4. Anatomical Thoracic Check: Verify Bilateral Lung Fields
+    # 4. Non-Chest Medical X-Rays (Hand, Foot, Skull, Knee, Dental): Verify Bilateral Lung Fields
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)
     blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
@@ -192,7 +192,7 @@ def validate_chest_radiograph(raw_rgb: np.ndarray) -> tuple[bool, str]:
                 if cx > 0.48 * w: right_lobe = True
 
     if not (left_lobe or right_lobe) or valid_lung_cavities < 1:
-        return False, "No anatomical lung fields detected. Image appears to be a non-chest image (hand, skull, limb X-ray, or non-medical graphic)."
+        return False, "❌ Input Rejected: No anatomical lung fields detected. This image appears to be a non-chest image (e.g. skull, hand, limb X-ray, or non-medical graphic)."
 
     return True, "Valid chest radiograph"
 
@@ -366,7 +366,8 @@ with nav_analysis:
         # 1. Validation check
         is_valid, val_msg = validate_chest_radiograph(raw_rgb)
         if not is_valid:
-            st.error(f"❌ {val_msg}")
+            st.error(val_msg)
+            st.warning("Please upload a medical chest radiograph (PA view) only.")
             st.stop()
 
         # 2. AI Inference & Grad-CAM
