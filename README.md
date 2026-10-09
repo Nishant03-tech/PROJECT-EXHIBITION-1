@@ -7,6 +7,8 @@
 [![ROC-AUC](https://img.shields.io/badge/ROC--AUC-0.9971-blueviolet.svg)]()
 [![Specificity](https://img.shields.io/badge/Specificity-100%25-success.svg)]()
 
+Website link - https://respiraai-git-6bzygdubeaqtqeyqgstzjq.streamlit.app/
+
 > **Academic Research Prototype • Project Exhibition 1**
 >
 > RespiraAI is a student research project that explores how deep learning can help identify signs of tuberculosis (TB) in chest X-ray images. It uses DenseNet121 with CBAM attention, Binary Focal Loss, and a lung-focused Grad-CAM view to make the model's predictions easier to inspect.
