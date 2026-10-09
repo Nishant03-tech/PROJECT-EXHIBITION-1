@@ -256,4 +256,3 @@ RespiraAI is an **academic research prototype** developed for a project exhibiti
 2. Woo et al., **“CBAM: Convolutional Block Attention Module,”** ECCV 2018. [arXiv:1807.06521](https://arxiv.org/abs/1807.06521)
 3. Lin et al., **“Focal Loss for Dense Object Detection,”** ICCV 2017. [arXiv:1708.02002](https://arxiv.org/abs/1708.02002)
 4. Selvaraju et al., **“Grad-CAM: Visual Explanations from Deep Networks,”** ICCV 2017. [arXiv:1610.02391](https://arxiv.org/abs/1610.02391)
-
